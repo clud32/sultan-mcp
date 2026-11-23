@@ -1,0 +1,14 @@
+.local/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+reports/
+backups/
+goals.json
+kb_cache.*
+*.es3
+*.pkl
+.DS_Store
+.vscode/
+.idea/
