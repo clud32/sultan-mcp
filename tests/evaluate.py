@@ -21,7 +21,7 @@ def main():
         table = ROOT / "tests" / "queries.tsv"
         with table.open(encoding="utf-8", newline="") as source:
             rows = list(csv.DictReader(source, delimiter="\t"))
-        top1 = top3 = 0
+        groups = {}
         misses = []
         seen = set()
         for row in rows:
@@ -30,17 +30,22 @@ def main():
                 raise ValueError(f"重复问题 {query}")
             seen.add(query)
             targets = set(row["targets"].split(","))
-            if not targets & known:
-                raise ValueError(f"未找到参考文档 {targets}")
+            missing = targets - known
+            if missing:
+                raise ValueError(f"未找到参考文档 {sorted(missing)}")
             ids = [doc["id"] for _, doc in index.search(query, k=3)]
-            top1 += bool(ids and ids[0] in targets)
-            if targets.intersection(ids):
-                top3 += 1
-            else:
+            hit1 = bool(ids and ids[0] in targets)
+            hit3 = bool(targets.intersection(ids))
+            group = groups.setdefault(row["group"], {"queries": 0, "top1": 0, "top3": 0})
+            group["queries"] += 1
+            group["top1"] += hit1
+            group["top3"] += hit3
+            if not hit3:
                 misses.append(query)
-        print(json.dumps({"queries": len(rows), "documents": len(known), "top1": top1,
-                          "top3": top3, "kb_version": kb.KB_VERSION,
+        totals = {k: sum(g[k] for g in groups.values()) for k in ("queries", "top1", "top3")}
+        print(json.dumps({**totals, "documents": len(known), "kb_version": kb.KB_VERSION,
                           "queries_sha256": hashlib.sha256(table.read_bytes()).hexdigest(),
+                          "by_group": groups,
                           "top3_misses": misses}, ensure_ascii=False, indent=2))
 
 
